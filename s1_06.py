@@ -1,0 +1,6 @@
+id = int(input('Insira o id do novo ativo: '))
+nome = input('Insira o nome do novo ativo: ')
+responsavel = input('Insira o nome do responsável pelo novo ativo: ')
+print(f"ID: {id} - tipo: {type(id)}")
+print(f"Nome: {nome} - tipo: {type(nome)}")
+print(f"Responsável: {responsavel} - tipo: {type(responsavel)}")
