@@ -1,0 +1,12 @@
+{
+    "nome": "DB-Server-01",
+    "ip": "192.168.1.10",
+    "sistema_operacional": "Ubuntu Server 24.04",
+    "criticidade": "alta",
+    "vulnerabilidades": {
+        "Senha fraca": {
+            "severidade": "alta",
+            "status": "em tratamento"
+        }
+    }
+}
