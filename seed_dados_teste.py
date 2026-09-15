@@ -6,10 +6,10 @@ principal, garantindo que os dados fictícios passem pelas mesmas validações
 dos dados reais.
 
 Uso:
-    cd S2
     python3 seed_dados_teste.py
 """
 
+from app.logging_config import configurar_logging
 from app.models.enums import Severidade, StatusVulnerabilidade, TipoAtivo
 from app.repositories.ativo_repository import AtivoRepository
 from app.repositories.database import ConexaoBancoDeDados
@@ -125,6 +125,7 @@ ATIVOS_FICTICIOS = [
 
 
 def popular_banco_com_dados_ficticios() -> None:
+    configurar_logging()
     banco_de_dados = ConexaoBancoDeDados()
     servico_de_ativos = AtivoService(AtivoRepository(banco_de_dados))
     servico_de_vulnerabilidades = VulnerabilidadeService(VulnerabilidadeRepository(banco_de_dados))

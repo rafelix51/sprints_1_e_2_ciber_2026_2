@@ -14,7 +14,6 @@ com interface gráfica em **Tkinter** e persistência em banco de dados
 # (opcional) em distribuições Linux, garanta que o tkinter esteja instalado:
 sudo apt install python3-tk
 
-cd S2
 python3 main.py
 ```
 
@@ -24,28 +23,30 @@ criado automaticamente com as tabelas necessárias.
 ## Estrutura do projeto
 
 ```
-S2/
-├── main.py                     # Ponto de entrada da aplicação
-├── requirements.txt
-├── data/                       # Banco de dados SQLite (gerado em tempo de execução)
-└── app/
-    ├── exceptions.py           # Exceções personalizadas da aplicação
-    ├── models/                 # Entidades e enumerações
-    │   ├── enums.py             # TipoAtivo, Severidade, StatusVulnerabilidade
-    │   ├── ativo.py             # Entidade Ativo
-    │   └── vulnerabilidade.py   # Entidade Vulnerabilidade
-    ├── repositories/           # Acesso direto ao SQLite (SQL puro)
-    │   ├── database.py
-    │   ├── ativo_repository.py
-    │   └── vulnerabilidade_repository.py
-    ├── services/               # Regras de negócio, validações e cache em dicionário
-    │   ├── ativo_service.py
-    │   └── vulnerabilidade_service.py
-    └── ui/                     # Janelas Tkinter
-        ├── main_window.py
-        ├── ativo_form.py
-        ├── vulnerabilidade_window.py
-        └── vulnerabilidade_form.py
+main.py                       # Ponto de entrada da aplicação
+requirements.txt
+seed_dados_teste.py           # Script utilitário para popular o banco com dados fictícios
+data/                         # Banco de dados SQLite (gerado em tempo de execução)
+logs/                         # Log de auditoria (gerado em tempo de execução)
+app/
+├── exceptions.py             # Exceções personalizadas da aplicação
+├── logging_config.py         # Configuração central do logging/auditoria
+├── models/                   # Entidades e enumerações
+│   ├── enums.py               # TipoAtivo, Severidade, StatusVulnerabilidade
+│   ├── ativo.py               # Entidade Ativo
+│   └── vulnerabilidade.py     # Entidade Vulnerabilidade
+├── repositories/             # Acesso direto ao SQLite (SQL puro)
+│   ├── database.py
+│   ├── ativo_repository.py
+│   └── vulnerabilidade_repository.py
+├── services/                 # Regras de negócio, validações, cache em dicionário e logging
+│   ├── ativo_service.py
+│   └── vulnerabilidade_service.py
+└── ui/                       # Janelas Tkinter
+    ├── main_window.py
+    ├── ativo_form.py
+    ├── vulnerabilidade_window.py
+    └── vulnerabilidade_form.py
 ```
 
 ## Arquitetura em camadas
@@ -71,3 +72,25 @@ S2/
   cadastrada.
 - Tratamento de erros de validação (campos vazios, tipos inválidos) exibido
   na própria interface gráfica, sem travar a aplicação.
+
+## Logging / Auditoria
+
+Toda ação de cadastro, edição e exclusão de ativos e vulnerabilidades — além
+de tentativas inválidas (campo obrigatório vazio, tipo/severidade/status
+inválido, busca por um ID inexistente) — é registrada em
+`logs/auditoria.log`, servindo como evidência verificável do que foi feito
+no sistema e quando.
+
+Formato de cada linha: `data/hora [NÍVEL] módulo: mensagem`. Exemplo:
+
+```
+2026-09-14 22:10:03,512 [INFO] app.services.ativo_service: Ativo cadastrado: id=1 nome='DB-Server-01' responsavel='Raphael' setor='TI' tipo=SERVIDOR
+2026-09-14 22:10:15,201 [WARNING] app.services.ativo_service: Validação de ativo falhou: campo obrigatório 'nome' não foi informado.
+2026-09-14 22:11:02,884 [INFO] app.services.ativo_service: Ativo excluído: id=1 nome='DB-Server-01' (vulnerabilidades associadas removidas em cascata)
+```
+
+A configuração fica centralizada em `app/logging_config.py`
+(`configurar_logging()`), chamada uma única vez ao iniciar a aplicação
+(`main.py`). Mensagens de nível `INFO` (ações concluídas) vão só para o
+arquivo; mensagens de nível `WARNING` (tentativas inválidas) aparecem tanto
+no arquivo quanto no console.

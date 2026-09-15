@@ -33,6 +33,5 @@ htmlcov/
 # Logs
 *.log
 
-S2/data/inventario.db
-S2/__pycache__/
-S2/*.pyc
+# Banco de dados (gerado em tempo de execução)
+data/inventario.db
