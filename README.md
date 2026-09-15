@@ -1,4 +1,8 @@
-# Inventário de Ativos de TI (Sprint 2)
+# Inventário de Ativos de TI
+
+Repositório para armazenar os códigos do projeto das sprints 1 e 2 do curso de Cibersegurança da UFU 2026-2 
+
+Aluno: Raphael Felix
 
 Aplicação de cadastro (CRUD) de ativos de TI e de suas vulnerabilidades,
 com interface gráfica em **Tkinter** e persistência em banco de dados
