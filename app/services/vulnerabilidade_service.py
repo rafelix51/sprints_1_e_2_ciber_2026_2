@@ -1,0 +1,180 @@
+"""Regras de negócio relacionadas às vulnerabilidades de um ativo.
+
+Assim como o AtivoService, esta classe mantém as vulnerabilidades em cache
+usando dicionários: um indexado pelo id do ativo (para listar rapidamente
+as vulnerabilidades de um ativo específico) e outro indexado pelo id da
+própria vulnerabilidade (para localizar um registro rapidamente na hora de
+editar ou excluir).
+"""
+
+import logging
+from typing import Dict, List
+
+from app.exceptions import ErroDeValidacao, VulnerabilidadeNaoEncontradaError
+from app.models.enums import Severidade, StatusVulnerabilidade
+from app.models.vulnerabilidade import Vulnerabilidade
+from app.repositories.vulnerabilidade_repository import VulnerabilidadeRepository
+
+logger = logging.getLogger(__name__)
+
+
+class VulnerabilidadeService:
+    """Camada de regras de negócio para cadastro, edição e exclusão de vulnerabilidades."""
+
+    def __init__(self, repositorio_de_vulnerabilidades: VulnerabilidadeRepository):
+        self._repositorio = repositorio_de_vulnerabilidades
+        self._vulnerabilidades_por_id: Dict[int, Vulnerabilidade] = {}
+        self._vulnerabilidades_por_ativo: Dict[int, List[Vulnerabilidade]] = {}
+        self._recarregar_cache_a_partir_do_banco()
+
+    def _recarregar_cache_a_partir_do_banco(self) -> None:
+        self._vulnerabilidades_por_id = {}
+        self._vulnerabilidades_por_ativo = {}
+
+        for vulnerabilidade in self._repositorio.listar_todas():
+            self._indexar_vulnerabilidade_no_cache(vulnerabilidade)
+
+    def _indexar_vulnerabilidade_no_cache(self, vulnerabilidade: Vulnerabilidade) -> None:
+        self._vulnerabilidades_por_id[vulnerabilidade.id] = vulnerabilidade
+        self._vulnerabilidades_por_ativo.setdefault(vulnerabilidade.ativo_id, []).append(
+            vulnerabilidade
+        )
+
+    def listar_por_ativo(self, ativo_id: int) -> List[Vulnerabilidade]:
+        """Retorna as vulnerabilidades associadas a um ativo (lista vazia se não houver)."""
+        return list(self._vulnerabilidades_por_ativo.get(ativo_id, []))
+
+    def cadastrar(
+        self,
+        ativo_id: int,
+        descricao: str,
+        categoria: str,
+        severidade: Severidade,
+        status: StatusVulnerabilidade,
+    ) -> Vulnerabilidade:
+        """Valida e cadastra uma nova vulnerabilidade para um ativo."""
+        self._validar_campos_obrigatorios(descricao=descricao, categoria=categoria)
+        self._validar_severidade(severidade)
+        self._validar_status(status)
+
+        nova_vulnerabilidade = Vulnerabilidade(
+            ativo_id=ativo_id,
+            descricao=descricao.strip(),
+            categoria=categoria.strip(),
+            severidade=severidade,
+            status=status,
+        )
+        nova_vulnerabilidade = self._repositorio.inserir(nova_vulnerabilidade)
+        self._indexar_vulnerabilidade_no_cache(nova_vulnerabilidade)
+        logger.info(
+            "Vulnerabilidade cadastrada: id=%s ativo_id=%s descricao=%r categoria=%r "
+            "severidade=%s status=%s",
+            nova_vulnerabilidade.id,
+            nova_vulnerabilidade.ativo_id,
+            nova_vulnerabilidade.descricao,
+            nova_vulnerabilidade.categoria,
+            nova_vulnerabilidade.severidade.name,
+            nova_vulnerabilidade.status.name,
+        )
+        return nova_vulnerabilidade
+
+    def atualizar(
+        self,
+        vulnerabilidade_id: int,
+        descricao: str,
+        categoria: str,
+        severidade: Severidade,
+        status: StatusVulnerabilidade,
+    ) -> Vulnerabilidade:
+        """Valida e atualiza uma vulnerabilidade já cadastrada."""
+        vulnerabilidade_existente = self._buscar_por_id(vulnerabilidade_id)
+        self._validar_campos_obrigatorios(descricao=descricao, categoria=categoria)
+        self._validar_severidade(severidade)
+        self._validar_status(status)
+
+        valores_antes_da_alteracao = (
+            f"severidade={vulnerabilidade_existente.severidade.name} "
+            f"status={vulnerabilidade_existente.status.name}"
+        )
+
+        vulnerabilidade_existente.descricao = descricao.strip()
+        vulnerabilidade_existente.categoria = categoria.strip()
+        vulnerabilidade_existente.severidade = severidade
+        vulnerabilidade_existente.status = status
+
+        self._repositorio.atualizar(vulnerabilidade_existente)
+        logger.info(
+            "Vulnerabilidade atualizada: id=%s ativo_id=%s | antes: %s | depois: severidade=%s status=%s",
+            vulnerabilidade_existente.id,
+            vulnerabilidade_existente.ativo_id,
+            valores_antes_da_alteracao,
+            vulnerabilidade_existente.severidade.name,
+            vulnerabilidade_existente.status.name,
+        )
+        return vulnerabilidade_existente
+
+    def excluir(self, vulnerabilidade_id: int) -> None:
+        """Exclui uma vulnerabilidade do banco de dados e do cache em memória."""
+        vulnerabilidade = self._buscar_por_id(vulnerabilidade_id)
+
+        self._repositorio.excluir(vulnerabilidade_id)
+        del self._vulnerabilidades_por_id[vulnerabilidade_id]
+        self._vulnerabilidades_por_ativo[vulnerabilidade.ativo_id].remove(vulnerabilidade)
+        logger.info(
+            "Vulnerabilidade excluída: id=%s ativo_id=%s descricao=%r",
+            vulnerabilidade.id,
+            vulnerabilidade.ativo_id,
+            vulnerabilidade.descricao,
+        )
+
+    def esquecer_vulnerabilidades_do_ativo(self, ativo_id: int) -> None:
+        """Remove do cache as vulnerabilidades de um ativo que acabou de ser excluído.
+
+        A exclusão das linhas no banco de dados já é feita automaticamente
+        pelo SQLite (ON DELETE CASCADE); este método apenas mantém o cache
+        em memória consistente com o banco.
+        """
+        vulnerabilidades_removidas = self._vulnerabilidades_por_ativo.pop(ativo_id, [])
+        for vulnerabilidade in vulnerabilidades_removidas:
+            self._vulnerabilidades_por_id.pop(vulnerabilidade.id, None)
+
+        if vulnerabilidades_removidas:
+            logger.info(
+                "%s vulnerabilidade(s) do ativo_id=%s removida(s) em cascata.",
+                len(vulnerabilidades_removidas),
+                ativo_id,
+            )
+
+    def _buscar_por_id(self, vulnerabilidade_id: int) -> Vulnerabilidade:
+        vulnerabilidade = self._vulnerabilidades_por_id.get(vulnerabilidade_id)
+        if vulnerabilidade is None:
+            logger.warning(
+                "Busca por ID falhou: nenhuma vulnerabilidade encontrada com id=%s.",
+                vulnerabilidade_id,
+            )
+            raise VulnerabilidadeNaoEncontradaError(
+                f"Não existe vulnerabilidade cadastrada com o ID {vulnerabilidade_id}."
+            )
+        return vulnerabilidade
+
+    @staticmethod
+    def _validar_campos_obrigatorios(**campos: str) -> None:
+        for nome_do_campo, valor in campos.items():
+            if valor is None or not str(valor).strip():
+                logger.warning(
+                    "Validação de vulnerabilidade falhou: campo obrigatório '%s' não foi informado.",
+                    nome_do_campo,
+                )
+                raise ErroDeValidacao(f"O campo '{nome_do_campo}' é obrigatório.")
+
+    @staticmethod
+    def _validar_severidade(severidade: Severidade) -> None:
+        if not isinstance(severidade, Severidade):
+            logger.warning("Validação de vulnerabilidade falhou: severidade inválida (%r).", severidade)
+            raise ErroDeValidacao("Selecione uma severidade válida.")
+
+    @staticmethod
+    def _validar_status(status: StatusVulnerabilidade) -> None:
+        if not isinstance(status, StatusVulnerabilidade):
+            logger.warning("Validação de vulnerabilidade falhou: status inválido (%r).", status)
+            raise ErroDeValidacao("Selecione um status válido.")

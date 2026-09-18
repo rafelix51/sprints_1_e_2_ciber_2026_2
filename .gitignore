@@ -32,3 +32,6 @@ htmlcov/
 
 # Logs
 *.log
+
+# Banco de dados (gerado em tempo de execução)
+data/inventario.db

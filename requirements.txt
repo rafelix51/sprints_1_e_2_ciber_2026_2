@@ -1,0 +1,7 @@
+# Este projeto utiliza apenas bibliotecas padrão do Python (tkinter, sqlite3,
+# enum, dataclasses, pathlib), portanto não há dependências externas a instalar.
+#
+# Requisito mínimo: Python 3.9+ (testado com Python 3.13).
+# Em algumas distribuições Linux, o tkinter precisa ser instalado separadamente
+# via gerenciador de pacotes do sistema operacional, por exemplo:
+#   sudo apt install python3-tk
