@@ -28,6 +28,7 @@ requirements.txt
 seed_dados_teste.py           # Script utilitário para popular o banco com dados fictícios
 data/                         # Banco de dados SQLite (gerado em tempo de execução)
 logs/                         # Log de auditoria (gerado em tempo de execução)
+tests/                        # Testes automatizados (unittest) do CRUD de ativos e vulnerabilidades
 app/
 ├── exceptions.py             # Exceções personalizadas da aplicação
 ├── logging_config.py         # Configuração central do logging/auditoria
@@ -94,3 +95,30 @@ A configuração fica centralizada em `app/logging_config.py`
 (`main.py`). Mensagens de nível `INFO` (ações concluídas) vão só para o
 arquivo; mensagens de nível `WARNING` (tentativas inválidas) aparecem tanto
 no arquivo quanto no console.
+
+## Testes automatizados
+
+O CRUD completo de ativos e vulnerabilidades é coberto por testes
+automatizados com `unittest` (biblioteca padrão do Python, sem dependências
+extras). Para rodar toda a suíte a partir da raiz do projeto:
+
+```bash
+python3 -m unittest discover -s tests -v
+```
+
+Estrutura dos testes:
+
+```
+tests/
+├── base.py                          # Classe base: cria/destrói um SQLite temporário por teste
+├── test_ativo_repository.py         # CRUD de ativos direto na camada SQLite
+├── test_vulnerabilidade_repository.py  # CRUD de vulnerabilidades + exclusão em cascata (RF07)
+├── test_ativo_service.py            # CRUD + validações (RNF02) + cache em dicionário (RF10/RNF05)
+└── test_vulnerabilidade_service.py  # CRUD + validações + RF09 (lista vazia quando não há vulnerabilidades)
+```
+
+Cada teste usa um banco de dados SQLite próprio, criado em um diretório
+temporário e descartado ao final — os testes nunca leem ou alteram o banco
+real da aplicação (`data/inventario.db`). Os testes de cadastro, edição e
+exclusão também verificam (com `assertLogs`) que a ação correspondente foi
+registrada no log de auditoria.
