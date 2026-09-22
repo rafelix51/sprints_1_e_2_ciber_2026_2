@@ -1,5 +1,5 @@
 """Testes da camada de regras de negócio (VulnerabilidadeService):
-CRUD, validações e exclusão em cascata."""
+CRUD, validações da nota CVSS e exclusão em cascata."""
 
 from app.exceptions import ErroDeValidacao, VulnerabilidadeNaoEncontradaError
 from app.models.enums import Severidade, StatusVulnerabilidade, TipoAtivo
@@ -26,8 +26,8 @@ class TestVulnerabilidadeService(CasoDeTesteComBancoTemporario):
 
     def test_listar_por_ativo_retorna_apenas_vulnerabilidades_daquele_ativo(self):
         outro_ativo = self.servico_de_ativos.cadastrar("Servidor-02", "Fulano", "TI", TipoAtivo.SERVIDOR)
-        self.servico.cadastrar(self.ativo.id, "Vuln A", "Rede", Severidade.BAIXA, StatusVulnerabilidade.ABERTA)
-        self.servico.cadastrar(outro_ativo.id, "Vuln B", "Rede", Severidade.BAIXA, StatusVulnerabilidade.ABERTA)
+        self.servico.cadastrar(self.ativo.id, "Vuln A", "Rede", 2.0, StatusVulnerabilidade.ABERTA)
+        self.servico.cadastrar(outro_ativo.id, "Vuln B", "Rede", 2.0, StatusVulnerabilidade.ABERTA)
 
         vulnerabilidades_do_primeiro_ativo = self.servico.listar_por_ativo(self.ativo.id)
 
@@ -42,36 +42,56 @@ class TestVulnerabilidadeService(CasoDeTesteComBancoTemporario):
                 ativo_id=self.ativo.id,
                 descricao="Senha fraca",
                 categoria="Autenticação",
-                severidade=Severidade.ALTA,
+                nota_cvss=7.5,
                 status=StatusVulnerabilidade.ABERTA,
             )
 
         self.assertIsNotNone(vulnerabilidade.id)
+        self.assertEqual(vulnerabilidade.nota_cvss, 7.5)
         self.assertEqual(self.servico.listar_por_ativo(self.ativo.id), [vulnerabilidade])
+
+    def test_severidade_e_calculada_automaticamente_a_partir_da_nota_cvss(self):
+        vulnerabilidade = self.servico.cadastrar(
+            self.ativo.id, "Falha crítica", "Rede", 9.8, StatusVulnerabilidade.ABERTA
+        )
+
+        self.assertEqual(vulnerabilidade.severidade, Severidade.CRITICA)
 
     def test_cadastrar_com_descricao_vazia_levanta_erro_de_validacao(self):
         with self.assertRaises(ErroDeValidacao):
-            self.servico.cadastrar(
-                self.ativo.id, "", "Autenticação", Severidade.BAIXA, StatusVulnerabilidade.ABERTA
-            )
+            self.servico.cadastrar(self.ativo.id, "", "Autenticação", 2.0, StatusVulnerabilidade.ABERTA)
 
     def test_cadastrar_com_categoria_vazia_levanta_erro_de_validacao(self):
         with self.assertRaises(ErroDeValidacao):
-            self.servico.cadastrar(self.ativo.id, "Senha fraca", "", Severidade.BAIXA, StatusVulnerabilidade.ABERTA)
+            self.servico.cadastrar(self.ativo.id, "Senha fraca", "", 2.0, StatusVulnerabilidade.ABERTA)
 
-    def test_cadastrar_com_severidade_invalida_levanta_erro_de_validacao(self):
+    def test_cadastrar_com_nota_cvss_nao_numerica_levanta_erro_de_validacao(self):
         with self.assertRaises(ErroDeValidacao):
             self.servico.cadastrar(self.ativo.id, "desc", "cat", "alta", StatusVulnerabilidade.ABERTA)
 
+    def test_cadastrar_com_nota_cvss_negativa_levanta_erro_de_validacao(self):
+        with self.assertRaises(ErroDeValidacao):
+            self.servico.cadastrar(self.ativo.id, "desc", "cat", -0.1, StatusVulnerabilidade.ABERTA)
+
+    def test_cadastrar_com_nota_cvss_acima_de_dez_levanta_erro_de_validacao(self):
+        with self.assertRaises(ErroDeValidacao):
+            self.servico.cadastrar(self.ativo.id, "desc", "cat", 10.1, StatusVulnerabilidade.ABERTA)
+
+    def test_cadastrar_com_nota_cvss_nos_limites_validos_e_aceito(self):
+        self.servico.cadastrar(self.ativo.id, "nota mínima", "cat", 0.0, StatusVulnerabilidade.ABERTA)
+        self.servico.cadastrar(self.ativo.id, "nota máxima", "cat", 10.0, StatusVulnerabilidade.ABERTA)
+
+        self.assertEqual(len(self.servico.listar_por_ativo(self.ativo.id)), 2)
+
     def test_cadastrar_com_status_invalido_levanta_erro_de_validacao(self):
         with self.assertRaises(ErroDeValidacao):
-            self.servico.cadastrar(self.ativo.id, "desc", "cat", Severidade.BAIXA, "aberta")
+            self.servico.cadastrar(self.ativo.id, "desc", "cat", 2.0, "aberta")
 
     # --- Update ---------------------------------------------------------
 
-    def test_atualizar_altera_severidade_e_status(self):
+    def test_atualizar_altera_nota_cvss_e_status(self):
         vulnerabilidade = self.servico.cadastrar(
-            self.ativo.id, "Senha fraca", "Autenticação", Severidade.ALTA, StatusVulnerabilidade.ABERTA
+            self.ativo.id, "Senha fraca", "Autenticação", 8.0, StatusVulnerabilidade.ABERTA
         )
 
         with self.assertLogs(NOME_DO_LOGGER, level="INFO"):
@@ -79,22 +99,31 @@ class TestVulnerabilidadeService(CasoDeTesteComBancoTemporario):
                 vulnerabilidade_id=vulnerabilidade.id,
                 descricao="Senha fraca",
                 categoria="Autenticação",
-                severidade=Severidade.BAIXA,
+                nota_cvss=2.0,
                 status=StatusVulnerabilidade.CORRIGIDA,
             )
 
+        self.assertEqual(vulnerabilidade_atualizada.nota_cvss, 2.0)
         self.assertEqual(vulnerabilidade_atualizada.severidade, Severidade.BAIXA)
         self.assertEqual(vulnerabilidade_atualizada.status, StatusVulnerabilidade.CORRIGIDA)
 
     def test_atualizar_vulnerabilidade_inexistente_levanta_erro(self):
         with self.assertRaises(VulnerabilidadeNaoEncontradaError):
-            self.servico.atualizar(999, "desc", "cat", Severidade.BAIXA, StatusVulnerabilidade.ABERTA)
+            self.servico.atualizar(999, "desc", "cat", 2.0, StatusVulnerabilidade.ABERTA)
+
+    def test_atualizar_com_nota_cvss_fora_da_faixa_levanta_erro_de_validacao(self):
+        vulnerabilidade = self.servico.cadastrar(
+            self.ativo.id, "Senha fraca", "Autenticação", 8.0, StatusVulnerabilidade.ABERTA
+        )
+
+        with self.assertRaises(ErroDeValidacao):
+            self.servico.atualizar(vulnerabilidade.id, "Senha fraca", "Autenticação", 11.0, StatusVulnerabilidade.ABERTA)
 
     # --- Delete ---------------------------------------------------------
 
     def test_excluir_remove_vulnerabilidade_do_cache_e_do_banco(self):
         vulnerabilidade = self.servico.cadastrar(
-            self.ativo.id, "Senha fraca", "Autenticação", Severidade.ALTA, StatusVulnerabilidade.ABERTA
+            self.ativo.id, "Senha fraca", "Autenticação", 8.0, StatusVulnerabilidade.ABERTA
         )
 
         with self.assertLogs(NOME_DO_LOGGER, level="INFO"):
@@ -112,7 +141,7 @@ class TestVulnerabilidadeService(CasoDeTesteComBancoTemporario):
 
     def test_esquecer_vulnerabilidades_do_ativo_limpa_o_cache_apos_exclusao_do_ativo(self):
         self.servico.cadastrar(
-            self.ativo.id, "Senha fraca", "Autenticação", Severidade.ALTA, StatusVulnerabilidade.ABERTA
+            self.ativo.id, "Senha fraca", "Autenticação", 8.0, StatusVulnerabilidade.ABERTA
         )
 
         self.servico_de_ativos.excluir(self.ativo.id)

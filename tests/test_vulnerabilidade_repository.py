@@ -20,13 +20,13 @@ class TestVulnerabilidadeRepository(CasoDeTesteComBancoTemporario):
         )
 
     def _criar_vulnerabilidade_de_exemplo(
-        self, descricao: str = "Senha fraca", ativo_id: Optional[int] = None
+        self, descricao: str = "Senha fraca", ativo_id: Optional[int] = None, nota_cvss: float = 7.5
     ) -> Vulnerabilidade:
         vulnerabilidade = Vulnerabilidade(
             ativo_id=ativo_id or self.ativo.id,
             descricao=descricao,
             categoria="Autenticação",
-            severidade=Severidade.ALTA,
+            nota_cvss=nota_cvss,
             status=StatusVulnerabilidade.ABERTA,
         )
         return self.repositorio.inserir(vulnerabilidade)
@@ -41,11 +41,12 @@ class TestVulnerabilidadeRepository(CasoDeTesteComBancoTemporario):
     # --- Read ---------------------------------------------------------
 
     def test_buscar_por_id_retorna_vulnerabilidade_inserida(self):
-        vulnerabilidade = self._criar_vulnerabilidade_de_exemplo()
+        vulnerabilidade = self._criar_vulnerabilidade_de_exemplo(nota_cvss=7.5)
 
         encontrada = self.repositorio.buscar_por_id(vulnerabilidade.id)
 
         self.assertEqual(encontrada.descricao, "Senha fraca")
+        self.assertEqual(encontrada.nota_cvss, 7.5)
         self.assertEqual(encontrada.severidade, Severidade.ALTA)
         self.assertEqual(encontrada.status, StatusVulnerabilidade.ABERTA)
 
@@ -70,14 +71,15 @@ class TestVulnerabilidadeRepository(CasoDeTesteComBancoTemporario):
     # --- Update ---------------------------------------------------------
 
     def test_atualizar_persiste_alteracoes_no_banco(self):
-        vulnerabilidade = self._criar_vulnerabilidade_de_exemplo()
+        vulnerabilidade = self._criar_vulnerabilidade_de_exemplo(nota_cvss=7.5)
         vulnerabilidade.status = StatusVulnerabilidade.CORRIGIDA
-        vulnerabilidade.severidade = Severidade.BAIXA
+        vulnerabilidade.nota_cvss = 2.0
 
         self.repositorio.atualizar(vulnerabilidade)
         vulnerabilidade_atualizada = self.repositorio.buscar_por_id(vulnerabilidade.id)
 
         self.assertEqual(vulnerabilidade_atualizada.status, StatusVulnerabilidade.CORRIGIDA)
+        self.assertEqual(vulnerabilidade_atualizada.nota_cvss, 2.0)
         self.assertEqual(vulnerabilidade_atualizada.severidade, Severidade.BAIXA)
 
     # --- Delete ---------------------------------------------------------

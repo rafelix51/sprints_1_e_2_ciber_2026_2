@@ -49,7 +49,7 @@ class ConexaoBancoDeDados:
                 ativo_id INTEGER NOT NULL,
                 descricao TEXT NOT NULL,
                 categoria TEXT NOT NULL,
-                severidade TEXT NOT NULL,
+                nota_cvss REAL NOT NULL,
                 status TEXT NOT NULL,
                 FOREIGN KEY (ativo_id) REFERENCES ativos (id) ON DELETE CASCADE
             )

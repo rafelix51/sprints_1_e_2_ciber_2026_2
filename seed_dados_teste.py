@@ -10,7 +10,7 @@ Uso:
 """
 
 from app.logging_config import configurar_logging
-from app.models.enums import Severidade, StatusVulnerabilidade, TipoAtivo
+from app.models.enums import StatusVulnerabilidade, TipoAtivo
 from app.repositories.ativo_repository import AtivoRepository
 from app.repositories.database import ConexaoBancoDeDados
 from app.repositories.vulnerabilidade_repository import VulnerabilidadeRepository
@@ -28,13 +28,13 @@ ATIVOS_FICTICIOS = [
             {
                 "descricao": "Senha padrão do administrador não foi alterada",
                 "categoria": "Autenticação",
-                "severidade": Severidade.CRITICA,
+                "nota_cvss": 9.8,
                 "status": StatusVulnerabilidade.ABERTA,
             },
             {
                 "descricao": "Versão desatualizada do PostgreSQL com CVE conhecida",
                 "categoria": "Software Desatualizado",
-                "severidade": Severidade.ALTA,
+                "nota_cvss": 8.1,
                 "status": StatusVulnerabilidade.EM_TRATAMENTO,
             },
         ],
@@ -49,7 +49,7 @@ ATIVOS_FICTICIOS = [
             {
                 "descricao": "Certificado TLS expirado",
                 "categoria": "Criptografia",
-                "severidade": Severidade.MEDIA,
+                "nota_cvss": 5.3,
                 "status": StatusVulnerabilidade.CORRIGIDA,
             },
         ],
@@ -64,7 +64,7 @@ ATIVOS_FICTICIOS = [
             {
                 "descricao": "Interface de gerência exposta na internet",
                 "categoria": "Configuração Insegura",
-                "severidade": Severidade.CRITICA,
+                "nota_cvss": 9.1,
                 "status": StatusVulnerabilidade.ABERTA,
             },
         ],
@@ -87,13 +87,13 @@ ATIVOS_FICTICIOS = [
             {
                 "descricao": "Regras de firewall permissivas demais (any-any)",
                 "categoria": "Configuração Insegura",
-                "severidade": Severidade.ALTA,
+                "nota_cvss": 8.6,
                 "status": StatusVulnerabilidade.EM_TRATAMENTO,
             },
             {
                 "descricao": "Firmware desatualizado",
                 "categoria": "Software Desatualizado",
-                "severidade": Severidade.MEDIA,
+                "nota_cvss": 4.3,
                 "status": StatusVulnerabilidade.ACEITA_COMO_RISCO,
             },
         ],
@@ -108,7 +108,7 @@ ATIVOS_FICTICIOS = [
             {
                 "descricao": "Antivírus desatualizado há mais de 90 dias",
                 "categoria": "Proteção de Endpoint",
-                "severidade": Severidade.BAIXA,
+                "nota_cvss": 2.4,
                 "status": StatusVulnerabilidade.ABERTA,
             },
         ],
@@ -152,7 +152,7 @@ def popular_banco_com_dados_ficticios() -> None:
                 ativo_id=ativo_cadastrado.id,
                 descricao=dados_da_vulnerabilidade["descricao"],
                 categoria=dados_da_vulnerabilidade["categoria"],
-                severidade=dados_da_vulnerabilidade["severidade"],
+                nota_cvss=dados_da_vulnerabilidade["nota_cvss"],
                 status=dados_da_vulnerabilidade["status"],
             )
 

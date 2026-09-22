@@ -3,7 +3,7 @@
 import sqlite3
 from typing import List, Optional
 
-from app.models.enums import Severidade, StatusVulnerabilidade
+from app.models.enums import StatusVulnerabilidade
 from app.models.vulnerabilidade import Vulnerabilidade
 from app.repositories.database import ConexaoBancoDeDados
 
@@ -18,14 +18,14 @@ class VulnerabilidadeRepository:
         """Insere uma nova vulnerabilidade e preenche o 'id' gerado pelo banco."""
         cursor = self._conexao.execute(
             """
-            INSERT INTO vulnerabilidades (ativo_id, descricao, categoria, severidade, status)
+            INSERT INTO vulnerabilidades (ativo_id, descricao, categoria, nota_cvss, status)
             VALUES (?, ?, ?, ?, ?)
             """,
             (
                 vulnerabilidade.ativo_id,
                 vulnerabilidade.descricao,
                 vulnerabilidade.categoria,
-                vulnerabilidade.severidade.name,
+                vulnerabilidade.nota_cvss,
                 vulnerabilidade.status.name,
             ),
         )
@@ -38,13 +38,13 @@ class VulnerabilidadeRepository:
         self._conexao.execute(
             """
             UPDATE vulnerabilidades
-            SET descricao = ?, categoria = ?, severidade = ?, status = ?
+            SET descricao = ?, categoria = ?, nota_cvss = ?, status = ?
             WHERE id = ?
             """,
             (
                 vulnerabilidade.descricao,
                 vulnerabilidade.categoria,
-                vulnerabilidade.severidade.name,
+                vulnerabilidade.nota_cvss,
                 vulnerabilidade.status.name,
                 vulnerabilidade.id,
             ),
@@ -78,6 +78,6 @@ class VulnerabilidadeRepository:
             ativo_id=linha["ativo_id"],
             descricao=linha["descricao"],
             categoria=linha["categoria"],
-            severidade=Severidade[linha["severidade"]],
+            nota_cvss=linha["nota_cvss"],
             status=StatusVulnerabilidade[linha["status"]],
         )
