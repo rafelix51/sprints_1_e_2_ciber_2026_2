@@ -9,7 +9,7 @@ from app.models.enums import rotulo_amigavel
 from app.services.vulnerabilidade_service import VulnerabilidadeService
 from app.ui.vulnerabilidade_form import JanelaFormularioVulnerabilidade
 
-COLUNAS_DA_TABELA = ("id", "descricao", "categoria", "severidade", "status")
+COLUNAS_DA_TABELA = ("id", "descricao", "categoria", "nota_cvss", "severidade", "status")
 
 
 class JanelaVulnerabilidades(tk.Toplevel):
@@ -50,8 +50,9 @@ class JanelaVulnerabilidades(tk.Toplevel):
         self._tabela = ttk.Treeview(quadro, columns=COLUNAS_DA_TABELA, show="headings")
         for coluna, titulo, largura in (
             ("id", "ID", 40),
-            ("descricao", "Descrição", 220),
-            ("categoria", "Categoria", 120),
+            ("descricao", "Descrição", 200),
+            ("categoria", "Categoria", 110),
+            ("nota_cvss", "Nota CVSS", 80),
             ("severidade", "Severidade", 100),
             ("status", "Status", 130),
         ):
@@ -96,6 +97,7 @@ class JanelaVulnerabilidades(tk.Toplevel):
                     vulnerabilidade.id,
                     vulnerabilidade.descricao,
                     vulnerabilidade.categoria,
+                    f"{vulnerabilidade.nota_cvss:.1f}",
                     rotulo_amigavel(vulnerabilidade.severidade.name),
                     rotulo_amigavel(vulnerabilidade.status.name),
                 ),

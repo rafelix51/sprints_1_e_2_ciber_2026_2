@@ -11,11 +11,14 @@ import logging
 from typing import Dict, List
 
 from app.exceptions import ErroDeValidacao, VulnerabilidadeNaoEncontradaError
-from app.models.enums import Severidade, StatusVulnerabilidade
+from app.models.enums import StatusVulnerabilidade
 from app.models.vulnerabilidade import Vulnerabilidade
 from app.repositories.vulnerabilidade_repository import VulnerabilidadeRepository
 
 logger = logging.getLogger(__name__)
+
+NOTA_CVSS_MINIMA = 0.0
+NOTA_CVSS_MAXIMA = 10.0
 
 
 class VulnerabilidadeService:
@@ -49,30 +52,35 @@ class VulnerabilidadeService:
         ativo_id: int,
         descricao: str,
         categoria: str,
-        severidade: Severidade,
+        nota_cvss: float,
         status: StatusVulnerabilidade,
     ) -> Vulnerabilidade:
-        """Valida e cadastra uma nova vulnerabilidade para um ativo."""
+        """Valida e cadastra uma nova vulnerabilidade para um ativo.
+
+        A severidade não é informada pelo usuário: ela é classificada
+        automaticamente a partir da nota CVSS (ver Severidade.a_partir_da_nota_cvss).
+        """
         self._validar_campos_obrigatorios(descricao=descricao, categoria=categoria)
-        self._validar_severidade(severidade)
+        self._validar_nota_cvss(nota_cvss)
         self._validar_status(status)
 
         nova_vulnerabilidade = Vulnerabilidade(
             ativo_id=ativo_id,
             descricao=descricao.strip(),
             categoria=categoria.strip(),
-            severidade=severidade,
+            nota_cvss=float(nota_cvss),
             status=status,
         )
         nova_vulnerabilidade = self._repositorio.inserir(nova_vulnerabilidade)
         self._indexar_vulnerabilidade_no_cache(nova_vulnerabilidade)
         logger.info(
             "Vulnerabilidade cadastrada: id=%s ativo_id=%s descricao=%r categoria=%r "
-            "severidade=%s status=%s",
+            "nota_cvss=%.1f severidade=%s status=%s",
             nova_vulnerabilidade.id,
             nova_vulnerabilidade.ativo_id,
             nova_vulnerabilidade.descricao,
             nova_vulnerabilidade.categoria,
+            nova_vulnerabilidade.nota_cvss,
             nova_vulnerabilidade.severidade.name,
             nova_vulnerabilidade.status.name,
         )
@@ -83,31 +91,34 @@ class VulnerabilidadeService:
         vulnerabilidade_id: int,
         descricao: str,
         categoria: str,
-        severidade: Severidade,
+        nota_cvss: float,
         status: StatusVulnerabilidade,
     ) -> Vulnerabilidade:
         """Valida e atualiza uma vulnerabilidade já cadastrada."""
         vulnerabilidade_existente = self._buscar_por_id(vulnerabilidade_id)
         self._validar_campos_obrigatorios(descricao=descricao, categoria=categoria)
-        self._validar_severidade(severidade)
+        self._validar_nota_cvss(nota_cvss)
         self._validar_status(status)
 
         valores_antes_da_alteracao = (
+            f"nota_cvss={vulnerabilidade_existente.nota_cvss:.1f} "
             f"severidade={vulnerabilidade_existente.severidade.name} "
             f"status={vulnerabilidade_existente.status.name}"
         )
 
         vulnerabilidade_existente.descricao = descricao.strip()
         vulnerabilidade_existente.categoria = categoria.strip()
-        vulnerabilidade_existente.severidade = severidade
+        vulnerabilidade_existente.nota_cvss = float(nota_cvss)
         vulnerabilidade_existente.status = status
 
         self._repositorio.atualizar(vulnerabilidade_existente)
         logger.info(
-            "Vulnerabilidade atualizada: id=%s ativo_id=%s | antes: %s | depois: severidade=%s status=%s",
+            "Vulnerabilidade atualizada: id=%s ativo_id=%s | antes: %s | "
+            "depois: nota_cvss=%.1f severidade=%s status=%s",
             vulnerabilidade_existente.id,
             vulnerabilidade_existente.ativo_id,
             valores_antes_da_alteracao,
+            vulnerabilidade_existente.nota_cvss,
             vulnerabilidade_existente.severidade.name,
             vulnerabilidade_existente.status.name,
         )
@@ -168,10 +179,16 @@ class VulnerabilidadeService:
                 raise ErroDeValidacao(f"O campo '{nome_do_campo}' é obrigatório.")
 
     @staticmethod
-    def _validar_severidade(severidade: Severidade) -> None:
-        if not isinstance(severidade, Severidade):
-            logger.warning("Validação de vulnerabilidade falhou: severidade inválida (%r).", severidade)
-            raise ErroDeValidacao("Selecione uma severidade válida.")
+    def _validar_nota_cvss(nota_cvss: float) -> None:
+        if isinstance(nota_cvss, bool) or not isinstance(nota_cvss, (int, float)):
+            logger.warning("Validação de vulnerabilidade falhou: nota CVSS não numérica (%r).", nota_cvss)
+            raise ErroDeValidacao("Informe a nota CVSS como um número.")
+
+        if not (NOTA_CVSS_MINIMA <= nota_cvss <= NOTA_CVSS_MAXIMA):
+            logger.warning("Validação de vulnerabilidade falhou: nota CVSS fora da faixa (%r).", nota_cvss)
+            raise ErroDeValidacao(
+                f"A nota CVSS deve estar entre {NOTA_CVSS_MINIMA:.1f} e {NOTA_CVSS_MAXIMA:.1f}."
+            )
 
     @staticmethod
     def _validar_status(status: StatusVulnerabilidade) -> None:
