@@ -5,20 +5,38 @@ Repositório para armazenar os códigos do projeto das sprints 1 e 2 do curso de
 Aluno: Raphael Felix
 
 Aplicação de cadastro (CRUD) de ativos de TI e de suas vulnerabilidades,
-com interface gráfica em **Tkinter** e persistência em banco de dados
-**SQLite**.
+com persistência em banco de dados **SQLite**. Pode ser usada tanto por
+uma interface gráfica em **Tkinter** quanto por um menu no **terminal**.
 
 ## Como executar
 
 ```bash
-# (opcional) em distribuições Linux, garanta que o tkinter esteja instalado:
+# (opcional) em distribuições Linux, garanta que o tkinter esteja instalado
+# (só é necessário se você for usar a interface gráfica):
 sudo apt install python3-tk
 
 python3 main.py
 ```
 
+Assim que o programa inicia, ele pergunta qual interface usar:
+
+```
+=== Inventário de Ativos de TI ===
+1 - Interface gráfica
+2 - Terminal
+Como deseja executar a aplicação? (1/2):
+```
+
+- **Interface gráfica**: abre a janela Tkinter com o inventário de ativos.
+- **Terminal**: abre um menu textual com absolutamente todas as operações
+  de CRUD de ativos e vulnerabilidades — útil em ambientes sem interface
+  gráfica disponível (RNF08). O Tkinter só é importado se a opção gráfica
+  for escolhida, então o modo terminal funciona mesmo sem `python3-tk`
+  instalado.
+
 Na primeira execução, o arquivo de banco de dados `data/inventario.db` é
-criado automaticamente com as tabelas necessárias.
+criado automaticamente com as tabelas necessárias — independente da
+interface escolhida, os dados são os mesmos (um único banco compartilhado).
 
 ## Estrutura do projeto
 
@@ -43,11 +61,13 @@ app/
 ├── services/                 # Regras de negócio, validações, cache em dicionário e logging
 │   ├── ativo_service.py
 │   └── vulnerabilidade_service.py
-└── ui/                       # Janelas Tkinter
-    ├── main_window.py
-    ├── ativo_form.py
-    ├── vulnerabilidade_window.py
-    └── vulnerabilidade_form.py
+├── ui/                       # Janelas Tkinter (interface gráfica)
+│   ├── main_window.py
+│   ├── ativo_form.py
+│   ├── vulnerabilidade_window.py
+│   └── vulnerabilidade_form.py
+└── cli/                      # Menu no terminal (interface de texto)
+    └── interface_texto.py
 ```
 
 ## Arquitetura em camadas
@@ -60,8 +80,12 @@ app/
   válidos etc.) antes de chamar o repositório. Também mantêm em memória um
   **cache em dicionário** dos ativos e vulnerabilidades já carregados, para
   otimizar buscas repetidas sem precisar acessar o banco a cada consulta.
-- **ui**: janelas Tkinter que apenas exibem dados e chamam os serviços;
-  não têm nenhum comando SQL nem regra de negócio.
+- **ui** e **cli**: duas interfaces diferentes (gráfica e terminal) para a
+  mesma aplicação. Nenhuma das duas tem comando SQL ou regra de negócio —
+  ambas apenas coletam dados do usuário, chamam os mesmos serviços
+  (`AtivoService`/`VulnerabilidadeService`) e exibem o resultado. Por isso
+  as duas interfaces têm sempre o mesmo comportamento e compartilham o
+  mesmo banco de dados.
 
 ## Funcionalidades
 
