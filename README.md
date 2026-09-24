@@ -10,9 +10,16 @@ uma interface gráfica em **Tkinter** quanto por um menu no **terminal**.
 
 ## Como executar
 
+Não há nenhuma dependência para instalar com `pip` — o projeto usa só
+bibliotecas padrão do Python (veja `requirements.txt`). O único ponto de
+atenção é o **tkinter**: em distribuições Linux baseadas em Debian/Ubuntu
+ele é empacotado separadamente e só é necessário se você for usar a
+interface gráfica.
+
 ```bash
-# (opcional) em distribuições Linux, garanta que o tkinter esteja instalado
-# (só é necessário se você for usar a interface gráfica):
+# (opcional) só necessário para a interface gráfica em distribuições Linux
+# baseadas em Debian/Ubuntu — o sqlite3, ao contrário do tkinter, já vem
+# embutido no Python e não precisa de nenhuma instalação separada:
 sudo apt install python3-tk
 
 python3 main.py
@@ -22,17 +29,19 @@ Assim que o programa inicia, ele pergunta qual interface usar:
 
 ```
 === Inventário de Ativos de TI ===
-1 - Interface gráfica
-2 - Terminal
-Como deseja executar a aplicação? (1/2):
+1 - Terminal
+2 - Interface gráfica
+0 - Sair
+Como deseja executar a aplicação?:
 ```
 
-- **Interface gráfica**: abre a janela Tkinter com o inventário de ativos.
 - **Terminal**: abre um menu textual com absolutamente todas as operações
   de CRUD de ativos e vulnerabilidades — útil em ambientes sem interface
   gráfica disponível (RNF08). O Tkinter só é importado se a opção gráfica
   for escolhida, então o modo terminal funciona mesmo sem `python3-tk`
   instalado.
+- **Interface gráfica**: abre a janela Tkinter com o inventário de ativos.
+- **Sair**: encerra o programa imediatamente, sem abrir nenhuma interface.
 
 Na primeira execução, o arquivo de banco de dados `data/inventario.db` é
 criado automaticamente com as tabelas necessárias — independente da
@@ -96,7 +105,7 @@ app/
 - Mensagem explícita quando um ativo não possui nenhuma vulnerabilidade
   cadastrada.
 - Tratamento de erros de validação (campos vazios, tipos inválidos) exibido
-  na própria interface gráfica, sem travar a aplicação.
+  na própria interface em uso (gráfica ou terminal), sem travar a aplicação.
 
 ## Severidade por nota CVSS
 
@@ -117,10 +126,12 @@ as faixas oficiais do CVSS v3.1:
 A classificação está centralizada em `Severidade.a_partir_da_nota_cvss()`
 (`app/models/enums.py`), usada tanto pela camada de serviço quanto pela
 propriedade `Vulnerabilidade.severidade` (`app/models/vulnerabilidade.py`) —
-por isso o texto exibido nunca fica dessincronizado da nota salva. No
-formulário de cadastro/edição, a severidade calculada é mostrada como
-prévia enquanto o usuário digita a nota; na listagem de vulnerabilidades de
-um ativo, tanto a nota quanto o texto da severidade aparecem lado a lado.
+por isso o texto exibido nunca fica dessincronizado da nota salva. Na
+**interface gráfica**, o formulário de cadastro/edição mostra a severidade
+calculada como prévia enquanto o usuário digita a nota, e a listagem de
+vulnerabilidades de um ativo exibe a nota e o texto da severidade lado a
+lado. No **terminal**, a severidade calculada aparece na confirmação após
+cadastrar/atualizar uma vulnerabilidade e em cada linha da listagem.
 
 ## Logging / Auditoria
 
